@@ -4,6 +4,8 @@ import useWallet from "../hooks/useWallet";
 import { getSBTContract, checkNetwork } from "../utils/sbtContract";
 import { switchToFuji } from "../utils/networkSwitch";
 import MilestoneForm from "../components/MilestoneForm"; // Import the milestone component
+import MentorDashboard from "../components/MentorDashboard"; // Import mentor dashboard
+import BlockchainDebugger from "../components/BlockchainDebugger"; // Import debugger
 
 export default function Home() {
   const { address, connectWallet, signer } = useWallet();
@@ -165,7 +167,35 @@ export default function Home() {
                 fontSize: "1rem"
               }}
             >
-              🏆 Milestone Verification
+              🏆 Submit Milestones
+            </button>
+            <button
+              onClick={() => setActiveTab("mentor")}
+              style={{
+                padding: "0.75rem 1.5rem",
+                border: "none",
+                backgroundColor: "transparent",
+                borderBottom: activeTab === "mentor" ? "2px solid #0070f3" : "none",
+                color: activeTab === "mentor" ? "#0070f3" : "#666",
+                cursor: "pointer",
+                fontSize: "1rem"
+              }}
+            >
+              🧑‍🏫 Mentor Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("debug")}
+              style={{
+                padding: "0.75rem 1.5rem",
+                border: "none",
+                backgroundColor: "transparent",
+                borderBottom: activeTab === "debug" ? "2px solid #0070f3" : "none",
+                color: activeTab === "debug" ? "#0070f3" : "#666",
+                cursor: "pointer",
+                fontSize: "1rem"
+              }}
+            >
+              🔍 Debug
             </button>
           </div>
 
@@ -271,6 +301,68 @@ export default function Home() {
                 </div>
               ) : (
                 <MilestoneForm signer={signer} address={address} />
+              )}
+            </div>
+          )}
+
+          {activeTab === "mentor" && (
+            <div>
+              {networkError ? (
+                <div style={{
+                  padding: "1rem",
+                  backgroundColor: "#fff3cd",
+                  border: "1px solid #ffeaa7",
+                  borderRadius: "5px",
+                  textAlign: "center"
+                }}>
+                  <p>Please switch to Avalanche Fuji network to access mentor dashboard</p>
+                  <button 
+                    onClick={handleNetworkSwitch}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      backgroundColor: "#ff6b6b",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "3px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Switch Network
+                  </button>
+                </div>
+              ) : (
+                <MentorDashboard signer={signer} address={address} />
+              )}
+            </div>
+          )}
+
+          {activeTab === "debug" && (
+            <div>
+              {networkError ? (
+                <div style={{
+                  padding: "1rem",
+                  backgroundColor: "#fff3cd",
+                  border: "1px solid #ffeaa7",
+                  borderRadius: "5px",
+                  textAlign: "center"
+                }}>
+                  <p>Please switch to Avalanche Fuji network to use debugger</p>
+                  <button 
+                    onClick={handleNetworkSwitch}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      backgroundColor: "#ff6b6b",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "3px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Switch Network
+                  </button>
+                </div>
+              ) : (
+                <BlockchainDebugger signer={signer} address={address} />
               )}
             </div>
           )}

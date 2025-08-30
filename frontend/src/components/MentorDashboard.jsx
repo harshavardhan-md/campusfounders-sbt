@@ -2,6 +2,13 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 
+const safeMilestoneType = (milestoneType) => {
+  if (!milestoneType || typeof milestoneType !== 'string') {
+    return 'Unknown';
+  }
+  return milestoneType.charAt(0).toUpperCase() + milestoneType.slice(1);
+};
+
 // Same ABI as in MilestoneForm
 const MILESTONE_ABI = [
   "function submitMilestone(string _startupId, string _milestoneType, uint256 _value, string _description, string _proofHash) returns (uint256)",
@@ -15,6 +22,7 @@ export default function MentorDashboard({ signer, address }) {
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
+  const [verifyingMilestone, setVerifyingMilestone] = useState(null);
 
   // Test startup IDs that have mentors assigned
   const testStartupIds = [
@@ -27,7 +35,7 @@ export default function MentorDashboard({ signer, address }) {
     if (!signer) return;
     
     setLoading(true);
-    setResult("🔄 Loading milestones...");
+    setResult("Loading milestones...");
     
     try {
       const contract = new ethers.Contract(
@@ -64,13 +72,13 @@ export default function MentorDashboard({ signer, address }) {
       
       setMilestones(allMilestones);
       setResult(allMilestones.length > 0 ? 
-        `📋 Found ${allMilestones.length} milestone(s) for review` : 
-        "📭 No milestones assigned to you yet"
+        `Found ${allMilestones.length} milestone(s) for review` : 
+        "No milestones assigned to you yet"
       );
       
     } catch (error) {
       console.error("Error loading milestones:", error);
-      setResult(`❌ Error loading milestones: ${error.message}`);
+      setResult(`Error loading milestones: ${error.message}`);
     }
     
     setLoading(false);
@@ -79,7 +87,8 @@ export default function MentorDashboard({ signer, address }) {
   const verifyMilestone = async (startupId, milestoneIndex) => {
     if (!signer) return;
     
-    setResult("🔄 Verifying milestone...");
+    setVerifyingMilestone(`${startupId}-${milestoneIndex}`);
+    setResult("Verifying milestone...");
     
     try {
       const contract = new ethers.Contract(
@@ -88,24 +97,53 @@ export default function MentorDashboard({ signer, address }) {
         signer
       );
 
+      // First check if milestone is already verified
+      const currentMilestones = await contract.getStartupMilestones(startupId);
+      if (currentMilestones[milestoneIndex] && currentMilestones[milestoneIndex].verified) {
+        setResult("This milestone is already verified!");
+        setVerifyingMilestone(null);
+        return;
+      }
+
       // Call verify function
       const tx = await contract.verifyMilestone(startupId, milestoneIndex);
       
-      setResult("⏳ Transaction submitted, waiting for confirmation...");
+      setResult("Transaction submitted, waiting for confirmation...");
       
       const receipt = await tx.wait();
       
-      setResult(`✅ Milestone verified successfully! 
-                 📄 Transaction: ${receipt.hash}
-                 🔗 View on Explorer: https://testnet.snowtrace.io/tx/${receipt.hash}`);
+      setResult(`Milestone verified successfully! 
+                 Transaction: ${receipt.hash}
+                 View on Explorer: https://testnet.snowtrace.io/tx/${receipt.hash}`);
 
-      // Reload milestones to show updated status
-      setTimeout(() => loadMilestones(), 2000);
+      // Also update the specific milestone in state immediately for better UX
+      setMilestones(prev => prev.map(m => 
+        m.startupId === startupId && m.milestoneIndex === milestoneIndex 
+          ? { ...m, verified: true }
+          : m
+      ));
+
+      // Reload milestones to show updated status with longer delay and manual refresh
+      setTimeout(() => {
+        console.log("Auto-refreshing milestones after verification...");
+        loadMilestones();
+      }, 3000);
 
     } catch (error) {
       console.error("Error verifying milestone:", error);
-      setResult(`❌ Error verifying milestone: ${error.message}`);
+      
+      // Better error handling for common cases
+      if (error.message.includes("missing revert data")) {
+        setResult(`Milestone might already be verified, or there was a blockchain connectivity issue. 
+                   Try refreshing the dashboard to see current status.`);
+      } else if (error.message.includes("already verified")) {
+        setResult("This milestone has already been verified!");
+      } else {
+        setResult(`Error verifying milestone: ${error.message}`);
+      }
     }
+    
+    setVerifyingMilestone(null);
   };
 
   useEffect(() => {
@@ -125,7 +163,7 @@ export default function MentorDashboard({ signer, address }) {
   return (
     <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-        <h2>🧑‍🏫 Mentor Dashboard</h2>
+        <h2>Mentor Dashboard</h2>
         <button
           onClick={loadMilestones}
           disabled={loading}
@@ -148,8 +186,8 @@ export default function MentorDashboard({ signer, address }) {
         <div style={{
           marginBottom: "2rem",
           padding: "1rem",
-          backgroundColor: result.includes("❌") ? "#ffebee" : result.includes("✅") ? "#e8f5e8" : "#fff3cd",
-          border: `1px solid ${result.includes("❌") ? "#f44336" : result.includes("✅") ? "#4caf50" : "#ffc107"}`,
+          backgroundColor: result.includes("Error") ? "#ffebee" : result.includes("successfully") ? "#e8f5e8" : "#fff3cd",
+          border: `1px solid ${result.includes("Error") ? "#f44336" : result.includes("successfully") ? "#4caf50" : "#ffc107"}`,
           borderRadius: "4px",
           whiteSpace: "pre-line",
           fontSize: "0.9rem"
@@ -166,7 +204,7 @@ export default function MentorDashboard({ signer, address }) {
           borderRadius: "8px",
           color: "#666"
         }}>
-          <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>📭 No milestones to review</p>
+          <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>No milestones to review</p>
           <p>Milestones submitted by startups will appear here for verification</p>
         </div>
       ) : (
@@ -191,10 +229,10 @@ export default function MentorDashboard({ signer, address }) {
               }}>
                 <div>
                   <h3 style={{ margin: "0 0 0.25rem 0", color: "#333" }}>
-                    📈 {milestone.startupId}
+                    {milestone.startupId}
                   </h3>
                   <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
-                    {milestone.milestoneType.charAt(0).toUpperCase() + milestone.milestoneType.slice(1)} Milestone
+                    {safeMilestoneType(milestone.milestoneType)} Milestone
                   </p>
                 </div>
                 <span style={{
@@ -205,7 +243,7 @@ export default function MentorDashboard({ signer, address }) {
                   backgroundColor: milestone.verified ? "#4caf50" : "#ff9800",
                   color: "white"
                 }}>
-                  {milestone.verified ? "✅ VERIFIED" : "⏳ PENDING"}
+                  {milestone.verified ? "VERIFIED" : "PENDING"}
                 </span>
               </div>
 
@@ -220,8 +258,8 @@ export default function MentorDashboard({ signer, address }) {
                   <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "#888" }}>VALUE</p>
                   <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: "bold" }}>
                     {milestone.milestoneType === "funding" || milestone.milestoneType === "revenue" 
-                      ? `$${Number(milestone.value).toLocaleString()}` 
-                      : Number(milestone.value).toLocaleString()}
+                      ? `$${Number(milestone.value || 0).toLocaleString()}` 
+                      : Number(milestone.value || 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
@@ -232,7 +270,7 @@ export default function MentorDashboard({ signer, address }) {
 
               <div style={{ marginBottom: "1rem" }}>
                 <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", color: "#888" }}>DESCRIPTION</p>
-                <p style={{ margin: 0, color: "#333" }}>{milestone.description}</p>
+                <p style={{ margin: 0, color: "#333" }}>{milestone.description || 'No description provided'}</p>
               </div>
 
               <div style={{ marginBottom: "1.5rem" }}>
@@ -244,7 +282,7 @@ export default function MentorDashboard({ signer, address }) {
                   color: "#666",
                   wordBreak: "break-all"
                 }}>
-                  {milestone.proofHash}
+                  {milestone.proofHash || 'No proof hash'}
                 </p>
               </div>
 
@@ -253,18 +291,19 @@ export default function MentorDashboard({ signer, address }) {
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                   <button
                     onClick={() => verifyMilestone(milestone.startupId, milestone.milestoneIndex)}
+                    disabled={verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}`}
                     style={{
                       padding: "0.75rem 1.5rem",
-                      backgroundColor: "#4caf50",
+                      backgroundColor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "#cccccc" : "#4caf50",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
-                      cursor: "pointer",
+                      cursor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "not-allowed" : "pointer",
                       fontSize: "0.9rem",
                       fontWeight: "bold"
                     }}
                   >
-                    ✅ Verify Milestone
+                    {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "Verifying..." : "Verify Milestone"}
                   </button>
                   <button
                     style={{
@@ -277,7 +316,7 @@ export default function MentorDashboard({ signer, address }) {
                       fontSize: "0.9rem"
                     }}
                   >
-                    ❌ Reject
+                    Reject
                   </button>
                 </div>
               )}
@@ -291,7 +330,7 @@ export default function MentorDashboard({ signer, address }) {
                   fontSize: "0.9rem",
                   fontWeight: "bold"
                 }}>
-                  🏆 This milestone is permanently verified on Avalanche blockchain
+                  This milestone is permanently verified on Avalanche blockchain
                 </div>
               )}
             </div>
