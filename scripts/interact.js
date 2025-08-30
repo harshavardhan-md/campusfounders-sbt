@@ -1,27 +1,33 @@
-const { ethers } = require("hardhat");
+// scripts/interact.js
+const hre = require("hardhat");
+require("dotenv").config();
 
 async function main() {
-  // Load deployer
-  const [deployer] = await ethers.getSigners();
-  console.log("Using account:", deployer.address);
+  const [admin, investor] = await hre.ethers.getSigners();
 
-  // Your deployed contract address from deploy step
-  const contractAddress = "0x05726348b041B94e73Df9268D8787Fa9c2c4409C";
+  const contractAddr = process.env.CONTRACT_ADDRESS;
+  const InvestorVerification = await hre.ethers.getContractFactory("InvestorVerification");
+  const contract = InvestorVerification.attach(contractAddr);
 
-  // Load ABI & attach
-  const InvestorVerification = await ethers.getContractFactory("InvestorVerification");
-  const contract = InvestorVerification.attach(contractAddress);
+  console.log("Admin:", admin.address);
+  console.log("Investor:", investor.address);
 
-  console.log("Loaded contract at:", contract.target || contract.address);
+  // 1. Investor requests verification (with some metadata string, e.g. "KYC123")
+  const tx1 = await contract.connect(investor).requestVerification("KYC123");
+  await tx1.wait();
+  console.log("✅ Investor requested verification");
 
-  // Example: call verifyInvestor
-  const tx = await contract.verifyInvestor(deployer.address);
-await tx.wait();
-console.log("Investor verified for:", deployer.address);
+  // 2. Admin approves investor
+  const tx2 = await contract.connect(admin).approveRequest(investor.address);
+  await tx2.wait();
+  console.log("✅ Admin approved investor");
 
+  // 3. Check verification status
+  const verified = await contract.isVerified(investor.address);
+  console.log("🔍 Investor verified status:", verified);
 }
 
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+  console.error("❌ Error:", error);
+  process.exit(1);
 });
