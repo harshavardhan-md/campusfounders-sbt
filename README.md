@@ -4,13 +4,13 @@
 ![Campus Founders - Connect, Showcase, Grow](https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Home.png?raw=true)
 
 <p align="center">
-  <a href="https://campusfounders.in/" target="_blank">
+  <a href="https://campus-founders.vercel.app/" target="_blank">
     <img src="https://img.shields.io/badge/✨_LIVE_DEMO-Visit_Website-37a779?style=for-the-badge" alt="https://campusfounders.in/"/>
   </a>
   <a href="#demo-video">
     <img src="https://img.shields.io/badge/🎬_WATCH-Demo_Video-FF0000?style=for-the-badge" alt="Demo Video"/>
   </a>
-  <a href="https://github.com/team-cosmic/campus-founders">
+  <a href="https://github.com/harshavardhan-md/campusfounders-sbt">
     <img src="https://img.shields.io/badge/⭐_STAR-Repository-FFC83D?style=for-the-badge" alt="Star Repository"/>
   </a>
 </p>
@@ -43,7 +43,7 @@ campusfounder_sbt/
 ## 🏗️ Architecture Overview
 
 <p align="center">
-  <img src="https://placeholder-image.com/campus-founders-architecture.png" width="90%" alt="Campus Founders Architecture">
+  <img src="https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Structure.png?raw=true" width="90%" alt="Campus Founders Architecture">
 </p>
 
 ### 🔗 Ecosystem Components
@@ -318,7 +318,7 @@ Bridge between established companies and startups:
 <table>
   <tr>
     <td align="center">
-      <img src="https://media.licdn.com/dms/image/v2/D5603AQHdyu_pxSv_wA/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1724525724964?e=1750291200&v=beta&t=YOYj6NBmQJKhQJ38PNQ3-F8uO2Klop1xY_SIsTVSi94" width="100px"><br>
+      <img src="https://net-worthy.web.app/assets/team/Harshavardhan-M.png" width="100px"><br>
       <b>Harshavardhan M</b><br>
       Blockchain Developer, Backend & AI Integration Lead<br>
       <a href="https://www.linkedin.com/in/harshavardhan-md/">LinkedIn</a>
