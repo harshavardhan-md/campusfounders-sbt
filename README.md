@@ -318,7 +318,7 @@ Bridge between established companies and startups:
 <table>
   <tr>
     <td align="center">
-      <img src="https://net-worthy.web.app/assets/team/Harshavardhan-M.png" width="100px"><br>
+      <img src="https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/AlgoViz/profile.jpg?raw=true" width="100px"><br>
       <b>Harshavardhan M</b><br>
       Blockchain Developer, Backend & AI Integration Lead<br>
       <a href="https://www.linkedin.com/in/harshavardhan-md/">LinkedIn</a>
