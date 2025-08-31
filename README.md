@@ -1,7 +1,7 @@
 # 🚀 Campus Founders: Complete Ecosystem
 ### Empowering Student-led Startups with AI, Blockchain & Government Integration
 
-![Campus Founders - Connect, Showcase, Grow](https://placeholder-image.com/campus-founders-header.png)
+![Campus Founders - Connect, Showcase, Grow](https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Home.png?raw=true)
 
 <p align="center">
   <a href="https://campusfounders.in/" target="_blank">
@@ -48,13 +48,13 @@ campusfounder_sbt/
 
 ### 🔗 Ecosystem Components
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Frontend Web App** | Next.js, React, Tailwind | Main user interface |
-| **Government API Integration** | FastAPI, Python, AI/ML | Scheme discovery & automation |
-| **Investor Verification** | Streamlit, Python, KYC APIs | Secure investor onboarding |
-| **Blockchain Layer** | Hardhat, Solidity, Ethereum | On-chain startup registry & mentorship |
-| **AI Recommendation Engine** | Machine Learning, NLP | Smart matching & insights |
+| Component | Technology | Purpose | Links |
+|-----------|------------|---------|-------|
+| **Frontend Web App** | Next.js, React, Tailwind | Main user interface | https://campus-founders.vercel.app/ |
+| **Government API Integration** | FastAPI, Python, AI/ML | Scheme discovery & automation | https://campusfounders.onrender.com/docs |
+| **Investor Verification** | Streamlit, Python, KYC APIs | Secure investor onboarding | https://investor-verification-system.streamlit.app/ |
+| **Blockchain Layer** | Hardhat, Solidity, Ethereum | On-chain startup registry & mentorship | Local Host using testnet AVAX |
+| **AI Recommendation Engine** | Machine Learning, NLP | Smart matching & insights | Under Development |
 
 ## 🚀 Revolutionary Features
 
@@ -174,7 +174,7 @@ contract StartupRegistry {
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/team-cosmic/campus-founders.git
+git clone https://github.com/harshavardhan-md/campusfounders-sbt.git
 cd campusfounder_sbt
 ```
 
@@ -274,7 +274,7 @@ Bridge between established companies and startups:
 - **Partnership Tracking**: End-to-end partnership management
 - **Success Metrics**: ROI tracking for corporate partnerships
 
-## 📊 Success Metrics
+## 📊 Goals
 
 <table>
   <tr>
@@ -288,8 +288,7 @@ Bridge between established companies and startups:
 ## 🏆 Recognition & Awards
 
 - 🥇 **Build For Bengaluru Hackathon 2025** - 1st Place Winner
-- 🌟 **Featured Startup** - Bangalore Startup Ecosystem Report 2025
-- 🏅 **Innovation Award** - Karnataka Government Startup Initiative
+- 🌟 **Featured Startup** - East Point Startup Ecosystem Report 2025
 
 ## 🛣️ Development Roadmap
 
@@ -321,7 +320,7 @@ Bridge between established companies and startups:
     <td align="center">
       <img src="https://media.licdn.com/dms/image/v2/D5603AQHdyu_pxSv_wA/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1724525724964?e=1750291200&v=beta&t=YOYj6NBmQJKhQJ38PNQ3-F8uO2Klop1xY_SIsTVSi94" width="100px"><br>
       <b>Harshavardhan M</b><br>
-      Backend & AI Integration Lead<br>
+      Blockchain Developer, Backend & AI Integration Lead<br>
       <a href="https://www.linkedin.com/in/harshavardhan-md/">LinkedIn</a>
     </td>
     <td align="center">
@@ -333,7 +332,7 @@ Bridge between established companies and startups:
     <td align="center">
       <img src="https://net-worthy.web.app/assets/team/Hitesh-P.jpg" width="100px"><br>
       <b>Hitesh P</b><br>
-      Backend & Blockchain Developer<br>
+      Backend<br>
       <a href="https://www.linkedin.com/in/hitesh-p-aa55662a3">LinkedIn</a>
     </td>
     <td align="center">
@@ -357,10 +356,8 @@ We welcome contributions from the community! Please check our [Contributing Guid
 
 ## 📧 Contact & Support
 
-- **Website**: [https://campusfounders.in](https://campusfounders.in)
-- **Email**: team@campusfounders.in
-- **LinkedIn**: [Campus Founders](https://linkedin.com/company/campus-founders)
-- **Discord**: [Join Our Community](https://discord.gg/campus-founders)
+- **Website**: [https://campus-founders.vercel.app/](https://campus-founders.vercel.app/)
+- **Email**: harshavardhan.md1@gmail.com
 
 ## 📄 License
 
