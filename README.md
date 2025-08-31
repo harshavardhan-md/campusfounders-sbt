@@ -43,7 +43,11 @@ campusfounder_sbt/
 ## 🏗️ Architecture Overview
 
 <p align="center">
-  <img src="https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Structure.png?raw=true" width="90%" alt="Campus Founders Architecture">
+  <img src="https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Structure.png?raw=true" width="90%" alt="CampusFounders Architecture">
+</p>
+
+<p align="center">
+  <img src="https://github.com/harshavardhan-md/assets_for_all_repos/blob/main/CampusFounders/Web3_Structure.png?raw=true" width="90%" alt="Web3 CampusFounders Architecture">
 </p>
 
 ### 🔗 Ecosystem Components
