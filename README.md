@@ -359,9 +359,6 @@ We welcome contributions from the community! Please contact us for details.
 - **Website**: [https://campus-founders.vercel.app/](https://campus-founders.vercel.app/)
 - **Email**: harshavardhan.md1@gmail.com
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
