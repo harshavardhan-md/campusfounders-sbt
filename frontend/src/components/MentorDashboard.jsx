@@ -175,8 +175,6 @@ const EnhancedMentorDashboard = ({ signer, address }) => {
   // Test startup IDs that have mentors assigned
   const testStartupIds = [
     "campus-founders-001",
-    "learny-hive-001", 
-    "startup-alpha-001",
     ...allStartupsData.map(s => s.id)
   ];
 
@@ -412,7 +410,11 @@ const EnhancedMentorDashboard = ({ signer, address }) => {
       }
 
       // Submit verification transaction
-      const tx = await contract.verifyMilestone(startupId, milestoneIndex);
+    //   const tx = await contract.verifyMilestone(startupId, milestoneIndex);
+    const tx = await contract.verifyMilestone(startupId, milestoneIndex, {
+  gasLimit: 200000,
+  gasPrice: "25000000000" // 25 gwei in wei (25 * 10^9)
+});
       
       setResult(`Transaction submitted! Hash: ${tx.hash.substring(0, 10)}...
 Waiting for blockchain confirmation...`);

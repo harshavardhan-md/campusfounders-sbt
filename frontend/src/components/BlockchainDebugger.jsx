@@ -235,12 +235,18 @@ Assignment ${i + 1}: (Decode Error)
 
       const knownStartups = [
         "campus-founders-001",
-        "learny-hive-001", 
-        "startup-alpha-001",
-        // Try some variations in case there's a naming issue
-        "CampusFounders",
-        "campusfounders", 
-        "test-startup-001"
+  "learny-hive-001",
+  "waiter-company-001",
+  "saathi-app-001", 
+  "kampus-001",
+  "nologin-001",
+  "krewsup-001",
+  "kavastra-001",
+  "guidero-001",
+  "magnus-chocolates-001",
+  "chitva-skincare-001",
+  "start-shape-creative-001",
+  "myniquee-art-001"
       ];
 
       let results = `🔍 Checking all known startup IDs:
