@@ -346,7 +346,7 @@ Bridge between established companies and startups:
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Please check our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions from the community! Please contact us for details.
 
 ### Development Guidelines
 1. **Code Style**: Follow ESLint/Black formatting
