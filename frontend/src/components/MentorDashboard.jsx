@@ -1,48 +1,153 @@
-"use client";
-import { useState, useEffect } from "react";
-import { ethers } from "ethers";
+import React, { useState, useEffect } from 'react';
+import { ExternalLink, Users, DollarSign, MapPin, Calendar, Award, Link, Globe } from 'lucide-react';
 
-const safeMilestoneType = (milestoneType) => {
-  if (!milestoneType || typeof milestoneType !== 'string') {
-    return 'Unknown';
+// Complete startup data from your surveys
+const allStartupsData = [
+  {
+    id: "learny-hive-001",
+    name: "LearnyHive",
+    funding: "₹45 Lakhs",
+    fundingETH: 0.45,
+    tags: ["Ed tech", "Innovation"],
+    founder: "Bhanush Gowda",
+    college: "EPCET Bangalore, 3rd Year",
+    color: "#FF5733",
+    url: "https://www.learnyhive.com/",
+    category: "EdTech"
+  },
+  {
+    id: "waiter-company-001",
+    name: "The Waiter Company",
+    funding: "₹32 Lakhs",
+    fundingETH: 0.32,
+    tags: ["FoodTech", "Logistics"],
+    founder: "Ishan Purohit",
+    college: "RV University, 4th Year",
+    color: "#4A90E2",
+    url: "https://www.thewaitercompany.in/",
+    category: "FoodTech"
+  },
+  {
+    id: "saathi-app-001",
+    name: "Saathi App",
+    funding: "₹20 Lakhs",
+    fundingETH: 0.20,
+    tags: ["Innovative", "Social"],
+    founder: "Abhay Gupta",
+    college: "RV College, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.saathiapp.in/",
+    category: "Social"
+  },
+  {
+    id: "kampus-001",
+    name: "Kampus",
+    funding: "₹50 Lakhs",
+    fundingETH: 0.50,
+    tags: ["Meets", "Social"],
+    founder: "Hemanth Gowda",
+    college: "Reva College, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.kampus.social/",
+    category: "Social"
+  },
+  {
+    id: "nologin-001",
+    name: "NoLogin",
+    funding: "₹10 Lakhs",
+    fundingETH: 0.10,
+    tags: ["Innovative", "Logistics"],
+    founder: "Deekshith B",
+    college: "BMS College, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.nologin.in/",
+    category: "Logistics"
+  },
+  {
+    id: "krewsup-001",
+    name: "Krewsup",
+    funding: "₹20 Lakhs",
+    fundingETH: 0.20,
+    tags: ["Innovative", "Health"],
+    founder: "S Hari Raghava",
+    college: "Reva College, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.Krewsup.com/",
+    category: "Health"
+  },
+  {
+    id: "kavastra-001",
+    name: "Kavastra",
+    funding: "₹12 Lakhs",
+    fundingETH: 0.12,
+    tags: ["Innovative", "Health"],
+    founder: "Shashikant kalal",
+    college: "University of Visvesvaraya College of Engineering, Bangalore, 4th Year",
+    color: "#50C878",
+    url: "http://www.kavastra.com/",
+    category: "Health"
+  },
+  {
+    id: "guidero-001",
+    name: "Guidero Private Limited",
+    funding: "₹12 Lakhs",
+    fundingETH: 0.12,
+    tags: ["Travel", "Innovative"],
+    founder: "C H Sanjana",
+    college: "Christ University, 4th Year",
+    color: "#50C878",
+    url: "www.guidero.in",
+    category: "Travel"
+  },
+  {
+    id: "magnus-chocolates-001",
+    name: "Magnus Chocolates",
+    funding: "₹45 Lakhs",
+    fundingETH: 0.45,
+    tags: ["Food Tech", "Service"],
+    founder: "Mayank Singh",
+    college: "NIFT Delhi",
+    color: "#FF5733",
+    url: "https://www.instagram.com/magnus_chocolates?igsh=aGl2OHR5bzQ2MHNv",
+    category: "FoodTech"
+  },
+  {
+    id: "chitva-skincare-001",
+    name: "Chitva- A Personalised Skincare Brand",
+    funding: "₹32 Lakhs",
+    fundingETH: 0.32,
+    tags: ["Skincare", "Beauty"],
+    founder: "Yerramshetty Suchita",
+    college: "MSR University, 4th Year",
+    color: "#4A90E2",
+    url: "https://www.linkedin.com/in/yerramsetty-sai-venkata-suchita-suchta1234?",
+    category: "Beauty"
+  },
+  {
+    id: "start-shape-001",
+    name: "Start Shape",
+    funding: "₹20 Lakhs",
+    fundingETH: 0.20,
+    tags: ["Solutions Company", "Creative"],
+    founder: "Jesvin Saji",
+    college: "Garden City University, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.starshape.in/",
+    category: "Creative"
+  },
+  {
+    id: "myniquee-001",
+    name: "Myniquee",
+    funding: "₹50 Lakhs",
+    fundingETH: 0.50,
+    tags: ["Creative", "Art"],
+    founder: "Vasundhara",
+    college: "Reva College, Bangalore, 3rd Year",
+    color: "#50C878",
+    url: "https://www.instagram.com/myniquee_12?igsh=MXhjdHQ5eTRkZTBrag==",
+    category: "Art"
   }
-  return milestoneType.charAt(0).toUpperCase() + milestoneType.slice(1);
-};
-
-// Helper function to safely convert BigInt values
-const safeConvertBigInt = (value) => {
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-  return value;
-};
-
-// Helper function to safely parse milestone data
-const processMilestoneData = (milestone, startupId, milestoneIndex) => {
-  try {
-    return {
-      startupId: startupId,
-      milestoneIndex: milestoneIndex,
-      description: milestone.description || `Milestone #${milestoneIndex + 1}`,
-      milestoneType: milestone.milestoneType || 'general',
-      value: safeConvertBigInt(milestone.value || 0),
-      mentorAddress: milestone.mentorAddress || milestone.assignedMentor,
-      verified: Boolean(milestone.verified),
-      rejected: false,
-      proofHash: milestone.proofHash || '',
-      timestamp: safeConvertBigInt(milestone.timestamp || 0),
-      formattedTime: milestone.timestamp ? 
-        new Date(Number(safeConvertBigInt(milestone.timestamp)) * 1000).toLocaleString() : 
-        'Unknown',
-      valueETH: milestone.value ? 
-        parseFloat(ethers.formatEther(safeConvertBigInt(milestone.value))) : 
-        0
-    };
-  } catch (error) {
-    console.error("Error processing milestone data:", error);
-    return null;
-  }
-};
+];
 
 // Enhanced ABI with all necessary functions
 const MILESTONE_ABI = [
@@ -56,14 +161,13 @@ const MILESTONE_ABI = [
   "function getMilestoneCount(uint256 startupId) view returns (uint256)"
 ];
 
-export default function MentorDashboard({ signer, address }) {
+const EnhancedMentorDashboard = ({ signer, address }) => {
   const [milestones, setMilestones] = useState([]);
   const [milestoneFilter, setMilestoneFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [verifyingMilestone, setVerifyingMilestone] = useState(null);
   const [error, setError] = useState("");
-  const [debugLogs, setDebugLogs] = useState([]);
 
   // Contract address
   const CONTRACT_ADDRESS = "0x9Cf969C1D5bEd8D568556104fD1c2b54c4C5A395";
@@ -72,36 +176,119 @@ export default function MentorDashboard({ signer, address }) {
   const testStartupIds = [
     "campus-founders-001",
     "learny-hive-001", 
-    "startup-alpha-001"
+    "startup-alpha-001",
+    ...allStartupsData.map(s => s.id)
   ];
 
-  // Debug logging function - simplified to avoid BigInt serialization issues
-  const debugLog = (message, extraInfo = null) => {
-    const timestamp = new Date().toLocaleTimeString();
-    let logEntry = `[${timestamp}] ${message}`;
-    
-    // Only add simple string/number data to avoid BigInt serialization
-    if (extraInfo && typeof extraInfo === 'string') {
-      logEntry += `: ${extraInfo}`;
+  const safeMilestoneType = (type) => {
+    const typeMap = {
+      'users': 'User Acquisition',
+      'funding': 'Funding Round',
+      'product': 'Product Development',
+      'revenue': 'Revenue Milestone'
+    };
+    return typeMap[type] || type || 'Unknown';
+  };
+
+  // Helper function to safely convert BigInt values
+  const safeConvertBigInt = (value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
     }
+    return value;
+  };
+
+  // Helper function to safely parse milestone data
+  const processMilestoneData = (milestone, startupId, milestoneIndex) => {
+    try {
+      const startup = allStartupsData.find(s => s.id === startupId);
+      return {
+        startupId: startupId,
+        milestoneIndex: milestoneIndex,
+        description: milestone.description || `Milestone #${milestoneIndex + 1}`,
+        milestoneType: milestone.milestoneType || 'general',
+        value: safeConvertBigInt(milestone.value || 0),
+        mentorAddress: milestone.mentorAddress || milestone.assignedMentor,
+        verified: Boolean(milestone.verified),
+        rejected: false,
+        proofHash: milestone.proofHash || '',
+        timestamp: safeConvertBigInt(milestone.timestamp || 0),
+        formattedTime: milestone.timestamp ? 
+          new Date(Number(safeConvertBigInt(milestone.timestamp)) * 1000).toLocaleString() : 
+          'Unknown',
+        valueETH: milestone.value ? 
+          parseFloat((Number(safeConvertBigInt(milestone.value)) / 1e18).toString()) : 
+          0,
+        startup: startup // Enriched data
+      };
+    } catch (error) {
+      console.error("Error processing milestone data:", error);
+      return null;
+    }
+  };
+
+  // Mock milestones data for demo (when no blockchain connection)
+  const generateMockMilestones = () => {
+    if (!address) return [];
     
-    console.log(logEntry);
-    setDebugLogs(prev => [...prev.slice(-9), logEntry]); // Keep last 10 logs
+    return allStartupsData.flatMap(startup => [
+      {
+        id: `${startup.id}-milestone-1`,
+        startupId: startup.id,
+        milestoneIndex: 0,
+        milestoneType: "users",
+        description: `${startup.name} - User Acquisition Milestone`,
+        valueETH: startup.fundingETH * 0.2,
+        mentorAddress: address,
+        proofHash: `QmStartup${startup.id}Milestone0ProofHash`,
+        formattedTime: "2025-08-31 10:30 AM",
+        verified: false,
+        startup: startup
+      },
+      {
+        id: `${startup.id}-milestone-2`,
+        startupId: startup.id,
+        milestoneIndex: 1,
+        milestoneType: "funding",
+        description: `${startup.name} - Initial Funding Milestone`,
+        valueETH: startup.fundingETH * 0.3,
+        mentorAddress: address,
+        proofHash: `QmStartup${startup.id}Milestone1ProofHash`,
+        formattedTime: "2025-08-30 02:15 PM",
+        verified: Math.random() > 0.5,
+        startup: startup
+      }
+    ]);
   };
 
   // Enhanced milestone loading with proper BigInt handling
   const loadMilestones = async () => {
-    if (!signer) {
-      setError("Signer not available");
+    if (!signer || !address) {
+      // Use mock data if no signer
+      const mockMilestones = generateMockMilestones();
+      setMilestones(mockMilestones);
+      setResult(`Demo mode: Loaded ${mockMilestones.length} mock milestones`);
       return;
     }
     
     setLoading(true);
     setError("");
-    setResult("🔄 Loading milestones from blockchain...");
-    debugLog("Starting milestone load for address " + address);
+    setResult("Loading milestones from blockchain...");
     
     try {
+      // Dynamically import ethers to handle if it's not available
+      let ethers;
+      try {
+        ethers = await import('ethers');
+      } catch (importError) {
+        console.warn("Ethers not available, using mock data");
+        const mockMilestones = generateMockMilestones();
+        setMilestones(mockMilestones);
+        setResult(`Mock mode: Loaded ${mockMilestones.length} demo milestones`);
+        setLoading(false);
+        return;
+      }
+
       const contract = new ethers.Contract(CONTRACT_ADDRESS, MILESTONE_ABI, signer);
       let allMilestones = [];
       
@@ -109,7 +296,6 @@ export default function MentorDashboard({ signer, address }) {
       for (const startupId of testStartupIds) {
         try {
           const startupMilestones = await contract.getStartupMilestones(startupId);
-          debugLog(`Found ${startupMilestones.length} milestones for ${startupId}`);
           
           // Process each milestone with safe BigInt conversion
           for (let i = 0; i < startupMilestones.length; i++) {
@@ -124,17 +310,14 @@ export default function MentorDashboard({ signer, address }) {
                 
                 if (processedMilestone) {
                   allMilestones.push(processedMilestone);
-                  debugLog(`Added milestone ${i} from ${startupId} - ${processedMilestone.description} - ${processedMilestone.valueETH} ETH - Verified: ${processedMilestone.verified}`);
                 }
               }
             } catch (milestoneError) {
-              debugLog(`Error processing milestone ${i} from ${startupId}: ${milestoneError.message}`);
               // Continue processing other milestones instead of breaking
               continue;
             }
           }
         } catch (error) {
-          debugLog(`Error loading milestones for ${startupId}: ${error.message}`);
           // Continue with other startups instead of failing completely
         }
       }
@@ -147,7 +330,6 @@ export default function MentorDashboard({ signer, address }) {
             // Get milestone count for this startup
             const milestoneCount = await contract.getMilestoneCount(startupId);
             const count = Number(safeConvertBigInt(milestoneCount));
-            debugLog(`Found startup ${startupId} with ${count} milestones`);
             
             // Fetch each milestone with proper BigInt handling
             for (let i = 0; i < count; i++) {
@@ -164,17 +346,15 @@ export default function MentorDashboard({ signer, address }) {
                   
                   if (processedMilestone) {
                     allMilestones.push(processedMilestone);
-                    debugLog(`Added numeric milestone ${i} from startup ${startupId}`);
                   }
                 }
               } catch (err) {
-                debugLog(`Could not load milestone ${i} for startup ${startupId}: ${err.message}`);
+                // Continue with other milestones
               }
             }
           }
         } catch (err) {
           // Startup doesn't exist, continue
-          debugLog(`Startup ${startupId} not found`);
         }
       }
       
@@ -186,19 +366,20 @@ export default function MentorDashboard({ signer, address }) {
       );
       
       setMilestones(uniqueMilestones);
-      debugLog(`Total unique milestones loaded: ${uniqueMilestones.length}`);
       
       if (uniqueMilestones.length === 0) {
-        setResult("📋 No milestones assigned to you yet. Milestones will appear here when startups submit them for review.");
+        setResult("No milestones assigned to you yet. Milestones will appear here when startups submit them for review.");
       } else {
-        setResult(`✅ Found ${uniqueMilestones.length} milestone(s) assigned for your review`);
+        setResult(`Found ${uniqueMilestones.length} milestone(s) assigned for your review`);
       }
       
     } catch (error) {
       console.error("Error loading milestones:", error);
-      debugLog("Failed to load milestones: " + error.message);
       setError(`Failed to load milestones: ${error.message}`);
-      setResult("");
+      // Fallback to mock data
+      const mockMilestones = generateMockMilestones();
+      setMilestones(mockMilestones);
+      setResult(`Blockchain connection failed, showing demo data (${mockMilestones.length} milestones)`);
     }
     
     setLoading(false);
@@ -213,10 +394,10 @@ export default function MentorDashboard({ signer, address }) {
     
     setVerifyingMilestone(`${startupId}-${milestoneIndex}`);
     setError("");
-    setResult("🔄 Processing verification transaction...");
-    debugLog("Starting milestone verification for " + startupId + " milestone " + milestoneIndex);
+    setResult("Processing verification transaction...");
     
     try {
+      const ethers = await import('ethers');
       const contract = new ethers.Contract(CONTRACT_ADDRESS, MILESTONE_ABI, signer);
 
       // First check if milestone is already verified
@@ -225,25 +406,23 @@ export default function MentorDashboard({ signer, address }) {
       );
       
       if (currentMilestone && currentMilestone.verified) {
-        setResult("⚠️ This milestone is already verified!");
+        setResult("This milestone is already verified!");
         setVerifyingMilestone(null);
         return;
       }
 
       // Submit verification transaction
       const tx = await contract.verifyMilestone(startupId, milestoneIndex);
-      debugLog("Verification transaction sent with hash " + tx.hash);
       
-      setResult(`📤 Transaction submitted! Hash: ${tx.hash.substring(0, 10)}...
-⏳ Waiting for blockchain confirmation...`);
+      setResult(`Transaction submitted! Hash: ${tx.hash.substring(0, 10)}...
+Waiting for blockchain confirmation...`);
       
       const receipt = await tx.wait();
-      debugLog("Milestone verified successfully with hash " + receipt.hash);
       
-      setResult(`✅ Milestone verified successfully! 
-📋 Transaction: ${receipt.hash}
-🔗 View on Snowtrace: https://testnet.snowtrace.io/tx/${receipt.hash}
-🔄 Refreshing dashboard...`);
+      setResult(`Milestone verified successfully! 
+Transaction: ${receipt.hash}
+View on Snowtrace: https://testnet.snowtrace.io/tx/${receipt.hash}
+Refreshing dashboard...`);
 
       // Update local state immediately for better UX
       setMilestones(prev => prev.map(m => 
@@ -259,20 +438,19 @@ export default function MentorDashboard({ signer, address }) {
 
     } catch (error) {
       console.error("Error verifying milestone:", error);
-      debugLog("Verification failed: " + error.message);
       
       // Enhanced error handling
       let errorMsg = error.message;
       if (errorMsg.includes("user rejected")) {
-        errorMsg = "❌ Transaction cancelled by user";
+        errorMsg = "Transaction cancelled by user";
       } else if (errorMsg.includes("insufficient funds")) {
-        errorMsg = "❌ Insufficient gas fees for transaction";
+        errorMsg = "Insufficient gas fees for transaction";
       } else if (errorMsg.includes("already verified")) {
-        errorMsg = "⚠️ This milestone has already been verified";
+        errorMsg = "This milestone has already been verified";
       } else if (errorMsg.includes("missing revert data")) {
-        errorMsg = "⚠️ Milestone might already be verified. Try refreshing the dashboard.";
+        errorMsg = "Milestone might already be verified. Try refreshing the dashboard.";
       } else {
-        errorMsg = `❌ Verification failed: ${errorMsg}`;
+        errorMsg = `Verification failed: ${errorMsg}`;
       }
       
       setError(errorMsg);
@@ -286,8 +464,7 @@ export default function MentorDashboard({ signer, address }) {
   const rejectMilestone = async (startupId, milestoneIndex) => {
     setVerifyingMilestone(`${startupId}-${milestoneIndex}-reject`);
     setError("");
-    setResult("📝 Processing rejection...");
-    debugLog("Rejecting milestone " + milestoneIndex + " from " + startupId);
+    setResult("Processing rejection...");
     
     try {
       // For demo purposes - mark as rejected locally
@@ -300,16 +477,14 @@ export default function MentorDashboard({ signer, address }) {
           : m
       ));
       
-      setResult(`📝 Milestone ${milestoneIndex + 1} marked for rejection/review`);
-      debugLog("Milestone rejection processed");
+      setResult(`Milestone ${milestoneIndex + 1} marked for rejection/review`);
       
       setTimeout(() => {
         setResult("");
       }, 3000);
       
     } catch (error) {
-      debugLog("Rejection failed: " + error.message);
-      setError(`❌ Rejection failed: ${error.message}`);
+      setError(`Rejection failed: ${error.message}`);
     }
     
     setVerifyingMilestone(null);
@@ -317,9 +492,7 @@ export default function MentorDashboard({ signer, address }) {
 
   // Load milestones on component mount
   useEffect(() => {
-    if (signer && address) {
-      loadMilestones();
-    }
+    loadMilestones();
   }, [signer, address]);
 
   // Filter milestones based on current filter
@@ -339,7 +512,7 @@ export default function MentorDashboard({ signer, address }) {
     totalValue: milestones.reduce((sum, m) => sum + (m.valueETH || 0), 0)
   };
 
-  if (!signer) {
+  if (!address) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
         <h2 style={{ color: "#666", marginBottom: "1rem" }}>Mentor Dashboard</h2>
@@ -396,7 +569,7 @@ export default function MentorDashboard({ signer, address }) {
             transition: "all 0.3s ease"
           }}
         >
-          {loading ? "🔄 Loading..." : "🔄 Refresh"}
+          {loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 
@@ -511,10 +684,10 @@ export default function MentorDashboard({ signer, address }) {
         <div style={{
           marginBottom: "1rem",
           padding: "1rem",
-          backgroundColor: result.includes("❌") ? "#ffebee" : result.includes("✅") ? "#e8f5e8" : "#fff3cd",
-          border: `1px solid ${result.includes("❌") ? "#f44336" : result.includes("✅") ? "#4caf50" : "#ffc107"}`,
+          backgroundColor: result.includes("failed") ? "#ffebee" : result.includes("successfully") ? "#e8f5e8" : "#fff3cd",
+          border: `1px solid ${result.includes("failed") ? "#f44336" : result.includes("successfully") ? "#4caf50" : "#ffc107"}`,
           borderRadius: "8px",
-          color: result.includes("❌") ? "#c62828" : result.includes("✅") ? "#2e7d2e" : "#856404",
+          color: result.includes("failed") ? "#c62828" : result.includes("successfully") ? "#2e7d2e" : "#856404",
           whiteSpace: "pre-line",
           fontSize: "0.9rem"
         }}>
@@ -545,7 +718,7 @@ export default function MentorDashboard({ signer, address }) {
         </div>
       ) : (
         <div style={{ display: "grid", gap: "1.5rem" }}>
-          {filteredMilestones.map((milestone, index) => {
+          {filteredMilestones.map((milestone) => {
             const isPending = !milestone.verified && !milestone.rejected;
             const statusColor = milestone.verified ? '#4caf50' : milestone.rejected ? '#f44336' : '#ff9800';
             const statusText = milestone.verified ? 'VERIFIED' : milestone.rejected ? 'REJECTED' : 'PENDING REVIEW';
@@ -588,26 +761,68 @@ export default function MentorDashboard({ signer, address }) {
                   marginBottom: "1.5rem",
                   paddingTop: "0.5rem"
                 }}>
-                  <div>
-                    <h3 style={{ 
-                      margin: "0 0 0.5rem 0", 
-                      color: "#333", 
-                      fontSize: "1.5rem",
-                      fontWeight: "bold"
-                    }}>
-                      {milestone.description || `${milestone.startupId} - Milestone #${milestone.milestoneIndex + 1}`}
-                    </h3>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem" }}>
+                      <h3 style={{ 
+                        margin: 0, 
+                        color: "#333", 
+                        fontSize: "1.5rem",
+                        fontWeight: "bold"
+                      }}>
+                        {milestone.startup?.name || milestone.startupId}
+                      </h3>
+                      {milestone.startup && (
+                        <span style={{
+                          backgroundColor: milestone.startup.color || '#e0e0e0',
+                          color: "white",
+                          padding: "0.25rem 0.75rem",
+                          borderRadius: "20px",
+                          fontSize: "0.8rem",
+                          fontWeight: "bold"
+                        }}>
+                          {milestone.startup.category}
+                        </span>
+                      )}
+                    </div>
+                    
                     <p style={{ 
                       margin: "0 0 0.25rem 0", 
                       color: "#666", 
                       fontSize: "1rem",
                       fontWeight: "600"
                     }}>
-                      Startup: <span style={{ color: "#2196f3" }}>{milestone.startupId}</span>
+                      Milestone: <span style={{ color: "#2196f3" }}>{safeMilestoneType(milestone.milestoneType)}</span>
                     </p>
-                    <p style={{ margin: 0, color: "#888", fontSize: "0.9rem" }}>
-                      Type: {safeMilestoneType(milestone.milestoneType)}
-                    </p>
+                    
+                    {milestone.startup && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <Users size={16} color="#666" />
+                          <span style={{ fontSize: "0.9rem", color: "#666" }}>{milestone.startup.founder}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <MapPin size={16} color="#666" />
+                          <span style={{ fontSize: "0.9rem", color: "#666" }}>{milestone.startup.college}</span>
+                        </div>
+                        {milestone.startup.url && (
+                          <a 
+                            href={milestone.startup.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              gap: "0.5rem", 
+                              color: "#2196f3",
+                              textDecoration: "none"
+                            }}
+                          >
+                            <Globe size={16} />
+                            <span style={{ fontSize: "0.9rem" }}>Visit Website</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div style={{ textAlign: "right" }}>
@@ -619,9 +834,32 @@ export default function MentorDashboard({ signer, address }) {
                     }}>
                       {milestone.valueETH ? milestone.valueETH.toFixed(4) : '0.0000'} ETH
                     </p>
-                    <p style={{ margin: 0, color: "#666", fontSize: "0.8rem" }}>Funding Value</p>
+                    <p style={{ margin: "0 0 0.5rem 0", color: "#666", fontSize: "0.8rem" }}>
+                      ({milestone.startup?.funding || 'Unknown'})
+                    </p>
                   </div>
                 </div>
+
+                {/* Tags */}
+                {milestone.startup?.tags && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {milestone.startup.tags.map((tag, index) => (
+                        <span key={index} style={{
+                          backgroundColor: "#f0f8ff",
+                          color: "#2196f3",
+                          padding: "0.25rem 0.75rem",
+                          borderRadius: "15px",
+                          fontSize: "0.8rem",
+                          fontWeight: "500",
+                          border: "1px solid #e3f2fd"
+                        }}>
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Details Grid */}
                 <div style={{
@@ -685,7 +923,7 @@ export default function MentorDashboard({ signer, address }) {
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(milestone.proofHash);
-                          setResult("📋 Proof hash copied to clipboard!");
+                          setResult("Proof hash copied to clipboard!");
                           setTimeout(() => setResult(""), 2000);
                         }}
                         style={{
@@ -699,7 +937,7 @@ export default function MentorDashboard({ signer, address }) {
                         }}
                         title="Copy proof hash"
                       >
-                        📋
+                        Copy
                       </button>
                     </div>
                   </div>
@@ -725,7 +963,7 @@ export default function MentorDashboard({ signer, address }) {
                             transition: "all 0.3s ease"
                           }}
                         >
-                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "🔄 Verifying..." : "✅ Verify Milestone"}
+                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "Verifying..." : "Verify Milestone"}
                         </button>
                         
                         <button
@@ -743,7 +981,7 @@ export default function MentorDashboard({ signer, address }) {
                             transition: "all 0.3s ease"
                           }}
                         >
-                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject` ? "🔄 Processing..." : "❌ Reject"}
+                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject` ? "Processing..." : "Reject"}
                         </button>
                       </>
                     )}
@@ -763,7 +1001,6 @@ export default function MentorDashboard({ signer, address }) {
                         fontSize: "0.9rem",
                         fontWeight: "bold"
                       }}>
-                        <span>✅</span>
                         <span>Verified on Chain</span>
                       </div>
                     )}
@@ -780,7 +1017,6 @@ export default function MentorDashboard({ signer, address }) {
                         fontSize: "0.9rem",
                         fontWeight: "bold"
                       }}>
-                        <span>❌</span>
                         <span>Rejected</span>
                       </div>
                     )}
@@ -797,7 +1033,6 @@ export default function MentorDashboard({ signer, address }) {
                         fontSize: "0.9rem",
                         fontWeight: "bold"
                       }}>
-                        <span>⏳</span>
                         <span>Awaiting Review</span>
                       </div>
                     )}
@@ -818,7 +1053,7 @@ export default function MentorDashboard({ signer, address }) {
         border: "1px solid #e0e0e0"
       }}>
         <h4 style={{ margin: "0 0 1rem 0", color: "#333", fontSize: "1.2rem", fontWeight: "bold" }}>
-          🚀 Quick Actions
+          Quick Actions
         </h4>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <button 
@@ -835,7 +1070,7 @@ export default function MentorDashboard({ signer, address }) {
               transition: "all 0.3s ease"
             }}
           >
-            📝 Review Pending ({stats.pending})
+            Review Pending ({stats.pending})
           </button>
           
           <button 
@@ -853,7 +1088,7 @@ export default function MentorDashboard({ signer, address }) {
               transition: "all 0.3s ease"
             }}
           >
-            🔄 Sync with Blockchain
+            Sync with Blockchain
           </button>
           
           <button 
@@ -870,32 +1105,12 @@ export default function MentorDashboard({ signer, address }) {
               transition: "all 0.3s ease"
             }}
           >
-            ✅ View Verified ({stats.verified})
+            View Verified ({stats.verified})
           </button>
         </div>
       </div>
-
-      {/* Debug Panel (can be hidden in production) */}
-      {debugLogs.length > 0 && (
-        <div style={{
-          marginTop: "2rem",
-          backgroundColor: "#1a1a1a",
-          color: "#00ff00",
-          padding: "1rem",
-          borderRadius: "8px",
-          fontSize: "0.8rem",
-          fontFamily: "monospace",
-          maxHeight: "200px",
-          overflowY: "auto"
-        }}>
-          <h4 style={{ margin: "0 0 0.5rem 0", color: "#fff" }}>🔧 Debug Logs</h4>
-          {debugLogs.map((log, i) => (
-            <div key={i} style={{ marginBottom: "0.25rem" }}>
-              {log}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
-}
+};
+
+export default EnhancedMentorDashboard;
