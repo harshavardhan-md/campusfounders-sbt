@@ -9,20 +9,64 @@ const safeMilestoneType = (milestoneType) => {
   return milestoneType.charAt(0).toUpperCase() + milestoneType.slice(1);
 };
 
-// Same ABI as in MilestoneForm
+// Helper function to safely convert BigInt values
+const safeConvertBigInt = (value) => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+};
+
+// Helper function to safely parse milestone data
+const processMilestoneData = (milestone, startupId, milestoneIndex) => {
+  try {
+    return {
+      startupId: startupId,
+      milestoneIndex: milestoneIndex,
+      description: milestone.description || `Milestone #${milestoneIndex + 1}`,
+      milestoneType: milestone.milestoneType || 'general',
+      value: safeConvertBigInt(milestone.value || 0),
+      mentorAddress: milestone.mentorAddress || milestone.assignedMentor,
+      verified: Boolean(milestone.verified),
+      rejected: false,
+      proofHash: milestone.proofHash || '',
+      timestamp: safeConvertBigInt(milestone.timestamp || 0),
+      formattedTime: milestone.timestamp ? 
+        new Date(Number(safeConvertBigInt(milestone.timestamp)) * 1000).toLocaleString() : 
+        'Unknown',
+      valueETH: milestone.value ? 
+        parseFloat(ethers.formatEther(safeConvertBigInt(milestone.value))) : 
+        0
+    };
+  } catch (error) {
+    console.error("Error processing milestone data:", error);
+    return null;
+  }
+};
+
+// Enhanced ABI with all necessary functions
 const MILESTONE_ABI = [
   "function submitMilestone(string _startupId, string _milestoneType, uint256 _value, string _description, string _proofHash) returns (uint256)",
   "function verifyMilestone(string _startupId, uint256 _milestoneIndex)",
   "function getStartupMilestones(string _startupId) view returns (tuple(string startupId, string milestoneType, uint256 value, string description, address mentorAddress, string proofHash, uint256 timestamp, bool verified)[])",
   "function addMentor(address _mentorAddress)",
-  "function assignMentor(string _startupId, address _mentorAddress)"
+  "function assignMentor(string _startupId, address _mentorAddress)",
+  "function startups(uint256) view returns (address founder, string name, string description, uint256 milestoneCount)",
+  "function getMilestone(uint256 startupId, uint256 milestoneIndex) view returns (tuple(string description, uint256 value, address assignedMentor, bool verified, string proofHash, uint256 timestamp))",
+  "function getMilestoneCount(uint256 startupId) view returns (uint256)"
 ];
 
 export default function MentorDashboard({ signer, address }) {
   const [milestones, setMilestones] = useState([]);
+  const [milestoneFilter, setMilestoneFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [verifyingMilestone, setVerifyingMilestone] = useState(null);
+  const [error, setError] = useState("");
+  const [debugLogs, setDebugLogs] = useState([]);
+
+  // Contract address
+  const CONTRACT_ADDRESS = "0x9Cf969C1D5bEd8D568556104fD1c2b54c4C5A395";
 
   // Test startup IDs that have mentors assigned
   const testStartupIds = [
@@ -31,164 +75,446 @@ export default function MentorDashboard({ signer, address }) {
     "startup-alpha-001"
   ];
 
+  // Debug logging function - simplified to avoid BigInt serialization issues
+  const debugLog = (message, extraInfo = null) => {
+    const timestamp = new Date().toLocaleTimeString();
+    let logEntry = `[${timestamp}] ${message}`;
+    
+    // Only add simple string/number data to avoid BigInt serialization
+    if (extraInfo && typeof extraInfo === 'string') {
+      logEntry += `: ${extraInfo}`;
+    }
+    
+    console.log(logEntry);
+    setDebugLogs(prev => [...prev.slice(-9), logEntry]); // Keep last 10 logs
+  };
+
+  // Enhanced milestone loading with proper BigInt handling
   const loadMilestones = async () => {
-    if (!signer) return;
+    if (!signer) {
+      setError("Signer not available");
+      return;
+    }
     
     setLoading(true);
-    setResult("Loading milestones...");
+    setError("");
+    setResult("🔄 Loading milestones from blockchain...");
+    debugLog("Starting milestone load for address " + address);
     
     try {
-      const contract = new ethers.Contract(
-        "0x9Cf969C1D5bEd8D568556104fD1c2b54c4C5A395",
-        MILESTONE_ABI,
-        signer
-      );
-
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, MILESTONE_ABI, signer);
       let allMilestones = [];
       
-      // Check each startup for milestones
+      // Method 1: Try the original string-based approach with proper BigInt handling
       for (const startupId of testStartupIds) {
         try {
           const startupMilestones = await contract.getStartupMilestones(startupId);
+          debugLog(`Found ${startupMilestones.length} milestones for ${startupId}`);
           
-          // Convert and filter milestones assigned to current mentor
+          // Process each milestone with safe BigInt conversion
           for (let i = 0; i < startupMilestones.length; i++) {
-            const milestone = startupMilestones[i];
-            
-            // Only show milestones where current user is the assigned mentor
-            if (milestone.mentorAddress.toLowerCase() === address.toLowerCase()) {
-              allMilestones.push({
-                ...milestone,
-                startupId: startupId,
-                milestoneIndex: i,
-                formattedTime: new Date(Number(milestone.timestamp) * 1000).toLocaleString()
-              });
+            try {
+              const rawMilestone = startupMilestones[i];
+              
+              // Check if this mentor is assigned (handle both possible field names)
+              const assignedMentor = rawMilestone.mentorAddress || rawMilestone.assignedMentor;
+              
+              if (assignedMentor && assignedMentor.toLowerCase() === address.toLowerCase()) {
+                const processedMilestone = processMilestoneData(rawMilestone, startupId, i);
+                
+                if (processedMilestone) {
+                  allMilestones.push(processedMilestone);
+                  debugLog(`Added milestone ${i} from ${startupId} - ${processedMilestone.description} - ${processedMilestone.valueETH} ETH - Verified: ${processedMilestone.verified}`);
+                }
+              }
+            } catch (milestoneError) {
+              debugLog(`Error processing milestone ${i} from ${startupId}: ${milestoneError.message}`);
+              // Continue processing other milestones instead of breaking
+              continue;
             }
           }
         } catch (error) {
-          console.log(`No milestones found for ${startupId}`);
+          debugLog(`Error loading milestones for ${startupId}: ${error.message}`);
+          // Continue with other startups instead of failing completely
+        }
+      }
+
+      // Method 2: Also try numeric startup IDs (1-10) with BigInt handling
+      for (let startupId = 1; startupId <= 10; startupId++) {
+        try {
+          const startup = await contract.startups(startupId);
+          if (startup.founder && startup.founder !== '0x0000000000000000000000000000000000000000') {
+            // Get milestone count for this startup
+            const milestoneCount = await contract.getMilestoneCount(startupId);
+            const count = Number(safeConvertBigInt(milestoneCount));
+            debugLog(`Found startup ${startupId} with ${count} milestones`);
+            
+            // Fetch each milestone with proper BigInt handling
+            for (let i = 0; i < count; i++) {
+              try {
+                const rawMilestone = await contract.getMilestone(startupId, i);
+                
+                // Check if this mentor is assigned
+                if (rawMilestone.assignedMentor && rawMilestone.assignedMentor.toLowerCase() === address.toLowerCase()) {
+                  const processedMilestone = processMilestoneData({
+                    ...rawMilestone,
+                    mentorAddress: rawMilestone.assignedMentor,
+                    milestoneType: 'general'
+                  }, startupId.toString(), i);
+                  
+                  if (processedMilestone) {
+                    allMilestones.push(processedMilestone);
+                    debugLog(`Added numeric milestone ${i} from startup ${startupId}`);
+                  }
+                }
+              } catch (err) {
+                debugLog(`Could not load milestone ${i} for startup ${startupId}: ${err.message}`);
+              }
+            }
+          }
+        } catch (err) {
+          // Startup doesn't exist, continue
+          debugLog(`Startup ${startupId} not found`);
         }
       }
       
-      setMilestones(allMilestones);
-      setResult(allMilestones.length > 0 ? 
-        `Found ${allMilestones.length} milestone(s) for review` : 
-        "No milestones assigned to you yet"
+      // Remove duplicates based on startupId + milestoneIndex
+      const uniqueMilestones = allMilestones.filter((milestone, index, self) => 
+        index === self.findIndex(m => 
+          m.startupId === milestone.startupId && m.milestoneIndex === milestone.milestoneIndex
+        )
       );
+      
+      setMilestones(uniqueMilestones);
+      debugLog(`Total unique milestones loaded: ${uniqueMilestones.length}`);
+      
+      if (uniqueMilestones.length === 0) {
+        setResult("📋 No milestones assigned to you yet. Milestones will appear here when startups submit them for review.");
+      } else {
+        setResult(`✅ Found ${uniqueMilestones.length} milestone(s) assigned for your review`);
+      }
       
     } catch (error) {
       console.error("Error loading milestones:", error);
-      setResult(`Error loading milestones: ${error.message}`);
+      debugLog("Failed to load milestones: " + error.message);
+      setError(`Failed to load milestones: ${error.message}`);
+      setResult("");
     }
     
     setLoading(false);
   };
 
+  // Enhanced verification function with better error handling
   const verifyMilestone = async (startupId, milestoneIndex) => {
-    if (!signer) return;
+    if (!signer) {
+      setError("Wallet not connected");
+      return;
+    }
     
     setVerifyingMilestone(`${startupId}-${milestoneIndex}`);
-    setResult("Verifying milestone...");
+    setError("");
+    setResult("🔄 Processing verification transaction...");
+    debugLog("Starting milestone verification for " + startupId + " milestone " + milestoneIndex);
     
     try {
-      const contract = new ethers.Contract(
-        "0x9Cf969C1D5bEd8D568556104fD1c2b54c4C5A395",
-        MILESTONE_ABI,
-        signer
-      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, MILESTONE_ABI, signer);
 
       // First check if milestone is already verified
-      const currentMilestones = await contract.getStartupMilestones(startupId);
-      if (currentMilestones[milestoneIndex] && currentMilestones[milestoneIndex].verified) {
-        setResult("This milestone is already verified!");
+      const currentMilestone = milestones.find(m => 
+        m.startupId === startupId && m.milestoneIndex === milestoneIndex
+      );
+      
+      if (currentMilestone && currentMilestone.verified) {
+        setResult("⚠️ This milestone is already verified!");
         setVerifyingMilestone(null);
         return;
       }
 
-      // Call verify function
+      // Submit verification transaction
       const tx = await contract.verifyMilestone(startupId, milestoneIndex);
+      debugLog("Verification transaction sent with hash " + tx.hash);
       
-      setResult("Transaction submitted, waiting for confirmation...");
+      setResult(`📤 Transaction submitted! Hash: ${tx.hash.substring(0, 10)}...
+⏳ Waiting for blockchain confirmation...`);
       
       const receipt = await tx.wait();
+      debugLog("Milestone verified successfully with hash " + receipt.hash);
       
-      setResult(`Milestone verified successfully! 
-                 Transaction: ${receipt.hash}
-                 View on Explorer: https://testnet.snowtrace.io/tx/${receipt.hash}`);
+      setResult(`✅ Milestone verified successfully! 
+📋 Transaction: ${receipt.hash}
+🔗 View on Snowtrace: https://testnet.snowtrace.io/tx/${receipt.hash}
+🔄 Refreshing dashboard...`);
 
-      // Also update the specific milestone in state immediately for better UX
+      // Update local state immediately for better UX
       setMilestones(prev => prev.map(m => 
         m.startupId === startupId && m.milestoneIndex === milestoneIndex 
           ? { ...m, verified: true }
           : m
       ));
 
-      // Reload milestones to show updated status with longer delay and manual refresh
+      // Auto-refresh after successful verification
       setTimeout(() => {
-        console.log("Auto-refreshing milestones after verification...");
         loadMilestones();
       }, 3000);
 
     } catch (error) {
       console.error("Error verifying milestone:", error);
+      debugLog("Verification failed: " + error.message);
       
-      // Better error handling for common cases
-      if (error.message.includes("missing revert data")) {
-        setResult(`Milestone might already be verified, or there was a blockchain connectivity issue. 
-                   Try refreshing the dashboard to see current status.`);
-      } else if (error.message.includes("already verified")) {
-        setResult("This milestone has already been verified!");
+      // Enhanced error handling
+      let errorMsg = error.message;
+      if (errorMsg.includes("user rejected")) {
+        errorMsg = "❌ Transaction cancelled by user";
+      } else if (errorMsg.includes("insufficient funds")) {
+        errorMsg = "❌ Insufficient gas fees for transaction";
+      } else if (errorMsg.includes("already verified")) {
+        errorMsg = "⚠️ This milestone has already been verified";
+      } else if (errorMsg.includes("missing revert data")) {
+        errorMsg = "⚠️ Milestone might already be verified. Try refreshing the dashboard.";
       } else {
-        setResult(`Error verifying milestone: ${error.message}`);
+        errorMsg = `❌ Verification failed: ${errorMsg}`;
       }
+      
+      setError(errorMsg);
+      setResult("");
     }
     
     setVerifyingMilestone(null);
   };
 
+  // Reject milestone function
+  const rejectMilestone = async (startupId, milestoneIndex) => {
+    setVerifyingMilestone(`${startupId}-${milestoneIndex}-reject`);
+    setError("");
+    setResult("📝 Processing rejection...");
+    debugLog("Rejecting milestone " + milestoneIndex + " from " + startupId);
+    
+    try {
+      // For demo purposes - mark as rejected locally
+      // In production, you'd have a proper smart contract reject function
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate transaction
+      
+      setMilestones(prev => prev.map(m => 
+        m.startupId === startupId && m.milestoneIndex === milestoneIndex 
+          ? { ...m, rejected: true }
+          : m
+      ));
+      
+      setResult(`📝 Milestone ${milestoneIndex + 1} marked for rejection/review`);
+      debugLog("Milestone rejection processed");
+      
+      setTimeout(() => {
+        setResult("");
+      }, 3000);
+      
+    } catch (error) {
+      debugLog("Rejection failed: " + error.message);
+      setError(`❌ Rejection failed: ${error.message}`);
+    }
+    
+    setVerifyingMilestone(null);
+  };
+
+  // Load milestones on component mount
   useEffect(() => {
     if (signer && address) {
       loadMilestones();
     }
   }, [signer, address]);
 
+  // Filter milestones based on current filter
+  const filteredMilestones = milestones.filter(milestone => {
+    if (milestoneFilter === 'pending') return !milestone.verified && !milestone.rejected;
+    if (milestoneFilter === 'verified') return milestone.verified;
+    if (milestoneFilter === 'rejected') return milestone.rejected;
+    return true; // 'all'
+  });
+
+  // Calculate statistics
+  const stats = {
+    total: milestones.length,
+    pending: milestones.filter(m => !m.verified && !m.rejected).length,
+    verified: milestones.filter(m => m.verified).length,
+    rejected: milestones.filter(m => m.rejected).length,
+    totalValue: milestones.reduce((sum, m) => sum + (m.valueETH || 0), 0)
+  };
+
   if (!signer) {
     return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <p>Please connect your wallet to access mentor dashboard</p>
+      <div style={{ padding: "2rem", textAlign: "center", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
+        <h2 style={{ color: "#666", marginBottom: "1rem" }}>Mentor Dashboard</h2>
+        <p style={{ color: "#888" }}>Please connect your wallet to access the mentor dashboard</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-        <h2>Mentor Dashboard</h2>
+    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif", maxWidth: "1200px", margin: "0 auto" }}>
+      
+      {/* Header Section */}
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center", 
+        marginBottom: "2rem",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        padding: "2rem",
+        borderRadius: "12px",
+        color: "white"
+      }}>
+        <div>
+          <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "2.5rem", fontWeight: "bold" }}>
+            Mentor Dashboard
+          </h2>
+          <p style={{ margin: 0, opacity: 0.9, fontSize: "1.1rem" }}>
+            Review and verify startup milestones
+          </p>
+          <p style={{ 
+            margin: "0.5rem 0 0 0", 
+            fontSize: "0.9rem", 
+            fontFamily: "monospace", 
+            backgroundColor: "rgba(255,255,255,0.2)", 
+            padding: "0.25rem 0.5rem", 
+            borderRadius: "4px",
+            display: "inline-block"
+          }}>
+            {address}
+          </p>
+        </div>
         <button
           onClick={loadMilestones}
           disabled={loading}
           style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: "#6c757d",
+            padding: "1rem 1.5rem",
+            backgroundColor: loading ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.2)",
             color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: loading ? "not-allowed" : "pointer"
+            border: "2px solid rgba(255,255,255,0.3)",
+            borderRadius: "8px",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontSize: "1rem",
+            fontWeight: "bold",
+            transition: "all 0.3s ease"
           }}
         >
-          {loading ? "Loading..." : "Refresh"}
+          {loading ? "🔄 Loading..." : "🔄 Refresh"}
         </button>
       </div>
 
-      <p><strong>Mentor Address:</strong> {address}</p>
+      {/* Statistics Cards */}
+      <div style={{ 
+        display: "grid", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+        gap: "1rem", 
+        marginBottom: "2rem" 
+      }}>
+        <div style={{
+          backgroundColor: "white",
+          padding: "1.5rem",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          border: "1px solid #e0e0e0"
+        }}>
+          <p style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#2196f3", margin: "0 0 0.5rem 0" }}>
+            {stats.total}
+          </p>
+          <p style={{ color: "#666", margin: 0, fontSize: "0.9rem" }}>Total Assigned</p>
+        </div>
+        
+        <div style={{
+          backgroundColor: "white",
+          padding: "1.5rem",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          border: "1px solid #e0e0e0"
+        }}>
+          <p style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#ff9800", margin: "0 0 0.5rem 0" }}>
+            {stats.pending}
+          </p>
+          <p style={{ color: "#666", margin: 0, fontSize: "0.9rem" }}>Pending Review</p>
+        </div>
+        
+        <div style={{
+          backgroundColor: "white",
+          padding: "1.5rem",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          border: "1px solid #e0e0e0"
+        }}>
+          <p style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#4caf50", margin: "0 0 0.5rem 0" }}>
+            {stats.verified}
+          </p>
+          <p style={{ color: "#666", margin: 0, fontSize: "0.9rem" }}>Verified</p>
+        </div>
+        
+        <div style={{
+          backgroundColor: "white",
+          padding: "1.5rem",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          border: "1px solid #e0e0e0"
+        }}>
+          <p style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#9c27b0", margin: "0 0 0.5rem 0" }}>
+            {stats.totalValue.toFixed(3)}
+          </p>
+          <p style={{ color: "#666", margin: 0, fontSize: "0.9rem" }}>Total ETH Value</p>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "2rem" }}>
+        {[
+          { key: 'all', label: `All (${stats.total})`, color: '#2196f3' },
+          { key: 'pending', label: `Pending (${stats.pending})`, color: '#ff9800' },
+          { key: 'verified', label: `Verified (${stats.verified})`, color: '#4caf50' },
+          { key: 'rejected', label: `Rejected (${stats.rejected})`, color: '#f44336' }
+        ].map(filter => (
+          <button 
+            key={filter.key}
+            onClick={() => setMilestoneFilter(filter.key)}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: milestoneFilter === filter.key ? filter.color : "#f5f5f5",
+              color: milestoneFilter === filter.key ? "white" : "#666",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              fontWeight: "bold",
+              transition: "all 0.3s ease"
+            }}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Status Messages */}
+      {error && (
+        <div style={{
+          marginBottom: "1rem",
+          padding: "1rem",
+          backgroundColor: "#ffebee",
+          border: "1px solid #f44336",
+          borderRadius: "8px",
+          color: "#c62828",
+          fontSize: "0.9rem"
+        }}>
+          {error}
+        </div>
+      )}
 
       {result && (
         <div style={{
-          marginBottom: "2rem",
+          marginBottom: "1rem",
           padding: "1rem",
-          backgroundColor: result.includes("Error") ? "#ffebee" : result.includes("successfully") ? "#e8f5e8" : "#fff3cd",
-          border: `1px solid ${result.includes("Error") ? "#f44336" : result.includes("successfully") ? "#4caf50" : "#ffc107"}`,
-          borderRadius: "4px",
+          backgroundColor: result.includes("❌") ? "#ffebee" : result.includes("✅") ? "#e8f5e8" : "#fff3cd",
+          border: `1px solid ${result.includes("❌") ? "#f44336" : result.includes("✅") ? "#4caf50" : "#ffc107"}`,
+          borderRadius: "8px",
+          color: result.includes("❌") ? "#c62828" : result.includes("✅") ? "#2e7d2e" : "#856404",
           whiteSpace: "pre-line",
           fontSize: "0.9rem"
         }}>
@@ -196,143 +522,376 @@ export default function MentorDashboard({ signer, address }) {
         </div>
       )}
 
-      {milestones.length === 0 && !loading ? (
+      {/* Milestones List */}
+      {filteredMilestones.length === 0 && !loading ? (
         <div style={{
           textAlign: "center",
-          padding: "3rem",
+          padding: "4rem 2rem",
           backgroundColor: "#f8f9fa",
-          borderRadius: "8px",
-          color: "#666"
+          borderRadius: "12px",
+          color: "#666",
+          border: "2px dashed #ddd"
         }}>
-          <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>No milestones to review</p>
-          <p>Milestones submitted by startups will appear here for verification</p>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📋</div>
+          <p style={{ fontSize: "1.5rem", marginBottom: "1rem", fontWeight: "bold" }}>
+            {milestoneFilter === 'all' ? 'No milestones assigned' : `No ${milestoneFilter} milestones`}
+          </p>
+          <p style={{ fontSize: "1rem" }}>
+            {milestoneFilter === 'all' 
+              ? 'Milestones submitted by startups will appear here for verification'
+              : `Switch to "All" to see milestones in other states`
+            }
+          </p>
         </div>
       ) : (
         <div style={{ display: "grid", gap: "1.5rem" }}>
-          {milestones.map((milestone, index) => (
-            <div
-              key={index}
-              style={{
-                border: milestone.verified ? "2px solid #4caf50" : "2px solid #ff9800",
-                borderRadius: "8px",
-                padding: "1.5rem",
-                backgroundColor: "white",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-              }}
-            >
-              {/* Header */}
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "1rem"
-              }}>
-                <div>
-                  <h3 style={{ margin: "0 0 0.25rem 0", color: "#333" }}>
-                    {milestone.startupId}
-                  </h3>
-                  <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
-                    {safeMilestoneType(milestone.milestoneType)} Milestone
-                  </p>
-                </div>
-                <span style={{
-                  padding: "0.25rem 0.75rem",
+          {filteredMilestones.map((milestone, index) => {
+            const isPending = !milestone.verified && !milestone.rejected;
+            const statusColor = milestone.verified ? '#4caf50' : milestone.rejected ? '#f44336' : '#ff9800';
+            const statusText = milestone.verified ? 'VERIFIED' : milestone.rejected ? 'REJECTED' : 'PENDING REVIEW';
+            
+            return (
+              <div
+                key={`${milestone.startupId}-${milestone.milestoneIndex}`}
+                style={{
+                  border: `3px solid ${statusColor}`,
+                  borderRadius: "12px",
+                  padding: "2rem",
+                  backgroundColor: "white",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  transition: "all 0.3s ease",
+                  position: "relative"
+                }}
+              >
+                
+                {/* Status Badge */}
+                <div style={{
+                  position: "absolute",
+                  top: "-10px",
+                  right: "20px",
+                  backgroundColor: statusColor,
+                  color: "white",
+                  padding: "0.5rem 1rem",
                   borderRadius: "20px",
                   fontSize: "0.8rem",
                   fontWeight: "bold",
-                  backgroundColor: milestone.verified ? "#4caf50" : "#ff9800",
-                  color: "white"
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
                 }}>
-                  {milestone.verified ? "VERIFIED" : "PENDING"}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem",
-                marginBottom: "1rem"
-              }}>
-                <div>
-                  <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "#888" }}>VALUE</p>
-                  <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: "bold" }}>
-                    {milestone.milestoneType === "funding" || milestone.milestoneType === "revenue" 
-                      ? `$${Number(milestone.value || 0).toLocaleString()}` 
-                      : Number(milestone.value || 0).toLocaleString()}
-                  </p>
+                  {statusText}
                 </div>
-                <div>
-                  <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "#888" }}>SUBMITTED</p>
-                  <p style={{ margin: 0, fontSize: "0.9rem" }}>{milestone.formattedTime}</p>
-                </div>
-              </div>
 
-              <div style={{ marginBottom: "1rem" }}>
-                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", color: "#888" }}>DESCRIPTION</p>
-                <p style={{ margin: 0, color: "#333" }}>{milestone.description || 'No description provided'}</p>
-              </div>
-
-              <div style={{ marginBottom: "1.5rem" }}>
-                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", color: "#888" }}>PROOF HASH</p>
-                <p style={{ 
-                  margin: 0, 
-                  fontSize: "0.8rem", 
-                  fontFamily: "monospace", 
-                  color: "#666",
-                  wordBreak: "break-all"
-                }}>
-                  {milestone.proofHash || 'No proof hash'}
-                </p>
-              </div>
-
-              {/* Verification Button */}
-              {!milestone.verified && (
-                <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <button
-                    onClick={() => verifyMilestone(milestone.startupId, milestone.milestoneIndex)}
-                    disabled={verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}`}
-                    style={{
-                      padding: "0.75rem 1.5rem",
-                      backgroundColor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "#cccccc" : "#4caf50",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "not-allowed" : "pointer",
-                      fontSize: "0.9rem",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "Verifying..." : "Verify Milestone"}
-                  </button>
-                  <button
-                    style={{
-                      padding: "0.75rem 1.5rem",
-                      backgroundColor: "#f44336",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "0.9rem"
-                    }}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-
-              {milestone.verified && (
+                {/* Header */}
                 <div style={{
-                  padding: "0.75rem",
-                  backgroundColor: "#e8f5e8",
-                  borderRadius: "4px",
-                  color: "#2e7d2e",
-                  fontSize: "0.9rem",
-                  fontWeight: "bold"
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "1.5rem",
+                  paddingTop: "0.5rem"
                 }}>
-                  This milestone is permanently verified on Avalanche blockchain
+                  <div>
+                    <h3 style={{ 
+                      margin: "0 0 0.5rem 0", 
+                      color: "#333", 
+                      fontSize: "1.5rem",
+                      fontWeight: "bold"
+                    }}>
+                      {milestone.description || `${milestone.startupId} - Milestone #${milestone.milestoneIndex + 1}`}
+                    </h3>
+                    <p style={{ 
+                      margin: "0 0 0.25rem 0", 
+                      color: "#666", 
+                      fontSize: "1rem",
+                      fontWeight: "600"
+                    }}>
+                      Startup: <span style={{ color: "#2196f3" }}>{milestone.startupId}</span>
+                    </p>
+                    <p style={{ margin: 0, color: "#888", fontSize: "0.9rem" }}>
+                      Type: {safeMilestoneType(milestone.milestoneType)}
+                    </p>
+                  </div>
+                  
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ 
+                      margin: "0 0 0.25rem 0", 
+                      fontSize: "2rem", 
+                      fontWeight: "bold", 
+                      color: "#4caf50" 
+                    }}>
+                      {milestone.valueETH ? milestone.valueETH.toFixed(4) : '0.0000'} ETH
+                    </p>
+                    <p style={{ margin: 0, color: "#666", fontSize: "0.8rem" }}>Funding Value</p>
+                  </div>
                 </div>
-              )}
+
+                {/* Details Grid */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                  marginBottom: "1.5rem"
+                }}>
+                  <div style={{
+                    backgroundColor: "#f8f9fa",
+                    padding: "1rem",
+                    borderRadius: "8px",
+                    border: "1px solid #e0e0e0"
+                  }}>
+                    <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "#888", fontWeight: "bold" }}>
+                      ASSIGNED MENTOR
+                    </p>
+                    <p style={{ margin: 0, fontSize: "0.8rem", fontFamily: "monospace", color: "#333" }}>
+                      {milestone.mentorAddress || 'Not assigned'}
+                    </p>
+                  </div>
+                  
+                  <div style={{
+                    backgroundColor: "#f8f9fa",
+                    padding: "1rem",
+                    borderRadius: "8px",
+                    border: "1px solid #e0e0e0"
+                  }}>
+                    <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "#888", fontWeight: "bold" }}>
+                      SUBMISSION DATE
+                    </p>
+                    <p style={{ margin: 0, fontSize: "0.9rem", color: "#333" }}>
+                      {milestone.formattedTime || 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Proof Hash Section */}
+                {milestone.proofHash && (
+                  <div style={{
+                    backgroundColor: "#f0f8ff",
+                    padding: "1rem",
+                    borderRadius: "8px",
+                    border: "1px solid #2196f3",
+                    marginBottom: "1.5rem"
+                  }}>
+                    <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", color: "#1976d2", fontWeight: "bold" }}>
+                      PROOF OF COMPLETION
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <p style={{ 
+                        margin: 0, 
+                        fontSize: "0.8rem", 
+                        fontFamily: "monospace", 
+                        color: "#333",
+                        flex: 1,
+                        wordBreak: "break-all"
+                      }}>
+                        {milestone.proofHash}
+                      </p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(milestone.proofHash);
+                          setResult("📋 Proof hash copied to clipboard!");
+                          setTimeout(() => setResult(""), 2000);
+                        }}
+                        style={{
+                          padding: "0.5rem",
+                          backgroundColor: "#2196f3",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "0.8rem"
+                        }}
+                        title="Copy proof hash"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "1rem" }}>
+                    {isPending && (
+                      <>
+                        <button
+                          onClick={() => verifyMilestone(milestone.startupId, milestone.milestoneIndex)}
+                          disabled={verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}`}
+                          style={{
+                            padding: "1rem 2rem",
+                            backgroundColor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "#cccccc" : "#4caf50",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "not-allowed" : "pointer",
+                            fontSize: "1rem",
+                            fontWeight: "bold",
+                            transition: "all 0.3s ease"
+                          }}
+                        >
+                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}` ? "🔄 Verifying..." : "✅ Verify Milestone"}
+                        </button>
+                        
+                        <button
+                          onClick={() => rejectMilestone(milestone.startupId, milestone.milestoneIndex)}
+                          disabled={verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject`}
+                          style={{
+                            padding: "1rem 2rem",
+                            backgroundColor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject` ? "#cccccc" : "#f44336",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject` ? "not-allowed" : "pointer",
+                            fontSize: "1rem",
+                            fontWeight: "bold",
+                            transition: "all 0.3s ease"
+                          }}
+                        >
+                          {verifyingMilestone === `${milestone.startupId}-${milestone.milestoneIndex}-reject` ? "🔄 Processing..." : "❌ Reject"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Status Indicators */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {milestone.verified && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        backgroundColor: "#e8f5e8",
+                        color: "#2e7d2e",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "20px",
+                        fontSize: "0.9rem",
+                        fontWeight: "bold"
+                      }}>
+                        <span>✅</span>
+                        <span>Verified on Chain</span>
+                      </div>
+                    )}
+                    
+                    {milestone.rejected && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        backgroundColor: "#ffebee",
+                        color: "#c62828",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "20px",
+                        fontSize: "0.9rem",
+                        fontWeight: "bold"
+                      }}>
+                        <span>❌</span>
+                        <span>Rejected</span>
+                      </div>
+                    )}
+                    
+                    {isPending && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        backgroundColor: "#fff3cd",
+                        color: "#856404",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "20px",
+                        fontSize: "0.9rem",
+                        fontWeight: "bold"
+                      }}>
+                        <span>⏳</span>
+                        <span>Awaiting Review</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Quick Actions Panel */}
+      <div style={{
+        marginTop: "2rem",
+        backgroundColor: "#f8f9fa",
+        padding: "1.5rem",
+        borderRadius: "12px",
+        border: "1px solid #e0e0e0"
+      }}>
+        <h4 style={{ margin: "0 0 1rem 0", color: "#333", fontSize: "1.2rem", fontWeight: "bold" }}>
+          🚀 Quick Actions
+        </h4>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <button 
+            onClick={() => setMilestoneFilter('pending')}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#fff3cd",
+              color: "#856404",
+              border: "1px solid #ffc107",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              fontWeight: "bold",
+              transition: "all 0.3s ease"
+            }}
+          >
+            📝 Review Pending ({stats.pending})
+          </button>
+          
+          <button 
+            onClick={loadMilestones}
+            disabled={loading}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#e3f2fd",
+              color: "#1976d2",
+              border: "1px solid #2196f3",
+              borderRadius: "6px",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontSize: "0.9rem",
+              fontWeight: "bold",
+              transition: "all 0.3s ease"
+            }}
+          >
+            🔄 Sync with Blockchain
+          </button>
+          
+          <button 
+            onClick={() => setMilestoneFilter('verified')}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#e8f5e8",
+              color: "#2e7d2e",
+              border: "1px solid #4caf50",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              fontWeight: "bold",
+              transition: "all 0.3s ease"
+            }}
+          >
+            ✅ View Verified ({stats.verified})
+          </button>
+        </div>
+      </div>
+
+      {/* Debug Panel (can be hidden in production) */}
+      {debugLogs.length > 0 && (
+        <div style={{
+          marginTop: "2rem",
+          backgroundColor: "#1a1a1a",
+          color: "#00ff00",
+          padding: "1rem",
+          borderRadius: "8px",
+          fontSize: "0.8rem",
+          fontFamily: "monospace",
+          maxHeight: "200px",
+          overflowY: "auto"
+        }}>
+          <h4 style={{ margin: "0 0 0.5rem 0", color: "#fff" }}>🔧 Debug Logs</h4>
+          {debugLogs.map((log, i) => (
+            <div key={i} style={{ marginBottom: "0.25rem" }}>
+              {log}
             </div>
           ))}
         </div>
